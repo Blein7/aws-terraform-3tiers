@@ -183,7 +183,7 @@ resource "aws_instance" "app" {
 
 # RDS Subnet Group
 resource "aws_db_subnet_group" "main" {
-  name       = "db-subnet-group"
+  name = "db-subnet-group"
   subnet_ids = [
     aws_subnet.private_subnets[0].id,
     aws_subnet.private_subnets[1].id
@@ -214,7 +214,7 @@ resource "aws_lb" "web_alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [
+  subnets = [
     aws_subnet.public_subnets[0].id,
     aws_subnet.public_subnets[1].id
   ]
