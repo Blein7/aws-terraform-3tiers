@@ -1,6 +1,4 @@
-
-# VPC + Subnets
-
+# VPC
 resource "aws_vpc" "main" {
   cidr_block = var.vpc_cidr
 
@@ -9,33 +7,37 @@ resource "aws_vpc" "main" {
   }
 }
 
+# Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 }
 
-resource "aws_subnet" "public" {
+# Public Subnets
+resource "aws_subnet" "public_subnets" {
+  count                   = 2
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.public_subnet_cidr
-  availability_zone       = var.availability_zone
+  cidr_block              = var.public_subnet_cidrs[count.index]
+  availability_zone       = var.availability_zones[count.index]
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "public-subnet"
+    Name = "public-subnet-${count.index + 1}"
   }
 }
 
-resource "aws_subnet" "private_db" {
+# Private Subnets
+resource "aws_subnet" "private_subnets" {
+  count             = 2
   vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_db_subnet_cidr
-  availability_zone = var.availability_zone
+  cidr_block        = var.private_subnet_cidrs[count.index]
+  availability_zone = var.availability_zones[count.index]
 
   tags = {
-    Name = "private-db-subnet"
+    Name = "private-subnet-${count.index + 1}"
   }
 }
 
-# Route Tables
-
+# Route Table
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -45,8 +47,10 @@ resource "aws_route_table" "public" {
   }
 }
 
+# Associate Route Table with Public Subnets
 resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
+  count          = 2
+  subnet_id      = aws_subnet.public_subnets[count.index].id
   route_table_id = aws_route_table.public.id
 }
 
@@ -86,7 +90,7 @@ resource "aws_security_group" "web_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Optional for SSH
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -136,14 +140,13 @@ resource "aws_security_group" "db_sg" {
 }
 
 # Web EC2 Instance
-
 resource "aws_instance" "web" {
   ami                         = "ami-0c7217cdde317cfec"
   instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public.id
+  subnet_id                   = aws_subnet.public_subnets[0].id
   vpc_security_group_ids      = [aws_security_group.web_sg.id]
   associate_public_ip_address = true
-  key_name                    = "your-key-name" # Replace with your SSH key pair
+  key_name                    = "EC2key"
 
   user_data = <<-EOF
               #!/bin/bash
@@ -160,11 +163,10 @@ resource "aws_instance" "web" {
 }
 
 # App EC2 Instance
-
 resource "aws_instance" "app" {
   ami                         = "ami-0c7217cdde317cfec"
   instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public.id
+  subnet_id                   = aws_subnet.public_subnets[1].id
   vpc_security_group_ids      = [aws_security_group.app_sg.id]
   associate_public_ip_address = false
 
@@ -179,13 +181,19 @@ resource "aws_instance" "app" {
   }
 }
 
-# RDS MySQL
-
+# RDS Subnet Group
 resource "aws_db_subnet_group" "main" {
   name       = "db-subnet-group"
-  subnet_ids = [aws_subnet.private_db.id]
+  subnet_ids = [
+    aws_subnet.private_subnets[0].id,
+    aws_subnet.private_subnets[1].id
+  ]
+  tags = {
+    Name = "My DB subnet group"
+  }
 }
 
+# RDS MySQL Instance
 resource "aws_db_instance" "mysql" {
   identifier             = "my-db-instance"
   engine                 = "mysql"
@@ -201,12 +209,15 @@ resource "aws_db_instance" "mysql" {
 }
 
 # Application Load Balancer
-
 resource "aws_lb" "web_alb" {
   name               = "web-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
+  subnets            = [
+    aws_subnet.public_subnets[0].id,
+    aws_subnet.public_subnets[1].id
+  ]
 
   tags = {
     Name = "web-alb"
