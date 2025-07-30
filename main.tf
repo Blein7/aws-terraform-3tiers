@@ -206,7 +206,6 @@ resource "aws_lb" "web_alb" {
   name               = "web-alb"
   internal           = false
   load_balancer_type = "application"
-  subnets            = [aws_subnet.public.id]
   security_groups    = [aws_security_group.alb_sg.id]
 
   tags = {
