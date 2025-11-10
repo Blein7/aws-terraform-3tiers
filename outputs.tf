@@ -3,5 +3,5 @@ output "alb_dns_name" {
 }
 
 output "web_instance_ip" {
-  value    = aws_instance.web.public_ip
+  value = aws_instance.web.public_ip
 }
