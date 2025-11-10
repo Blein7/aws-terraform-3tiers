@@ -183,7 +183,7 @@ resource "aws_instance" "app" {
 
 # RDS Subnet Group
 resource "aws_db_subnet_group" "main" {
-  name = "db-subnet-group"
+  name = "db-subnet-groups"
   subnet_ids = [
     aws_subnet.private_subnets[0].id,
     aws_subnet.private_subnets[1].id
